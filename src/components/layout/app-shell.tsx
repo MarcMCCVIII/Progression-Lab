@@ -11,7 +11,10 @@ import {
   Table2,
   TrendingUp,
   Users,
+  LogOut,
 } from "lucide-react";
+import { useAccount } from "@/lib/auth";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useDataStore } from "@/lib/data-store";
 import { Button } from "@/components/ui/button";
@@ -89,14 +92,17 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function SaveIndicator() {
-  const { lastSaved, data } = useDataStore();
-  const recorded = data.scores.filter((score) => score.status === "recorded")
-    .length;
+  const { lastSaved, data, saving } = useDataStore();
+  const { user, signOut } = useAccount();
+  const [signingOut, setSigningOut] = useState(false);
+  const recorded = data.scores.filter(
+    (score) => score.status === "recorded",
+  ).length;
   return (
     <div className="rounded-lg border border-sidebar-border/80 bg-sidebar-accent/40 p-3">
       <div className="flex items-center gap-2 text-xs font-medium text-sidebar-foreground">
         <Database className="size-3.5 text-sidebar-ring" />
-        Saved on this device
+        {saving ? "Saving to your account…" : "Saved to your account"}
       </div>
       <p className="mt-1 text-[11px] leading-relaxed text-sidebar-foreground/55">
         {recorded.toLocaleString()} score records
@@ -107,6 +113,44 @@ function SaveIndicator() {
             })}`
           : ""}
       </p>
+      <div className="mt-3 border-t border-sidebar-border pt-3">
+        <p
+          className="truncate text-xs text-sidebar-foreground"
+          title={user.email}
+        >
+          {user.name || user.email}
+        </p>
+        {user.name && (
+          <p
+            className="truncate text-[11px] text-sidebar-foreground/55"
+            title={user.email}
+          >
+            {user.email}
+          </p>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mt-2 w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          disabled={saving || signingOut}
+          onClick={async () => {
+            setSigningOut(true);
+            try {
+              await signOut();
+            } catch {
+              toast.error("Could not sign out. Please try again.");
+              setSigningOut(false);
+            }
+          }}
+        >
+          <LogOut className="size-3.5" />
+          {signingOut
+            ? "Signing out…"
+            : saving
+              ? "Saving before sign out…"
+              : "Sign out"}
+        </Button>
+      </div>
     </div>
   );
 }

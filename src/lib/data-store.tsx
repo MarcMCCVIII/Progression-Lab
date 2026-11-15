@@ -23,8 +23,14 @@ import {
   type Subject,
 } from "./types";
 
-const STORAGE_KEY = "progression-lab.dataset.v1";
-const SCOPE_KEY = "progression-lab.scope.v1";
+import { useAccount } from "./auth";
+import { datasetSchema } from "./dataset-schema";
+import {
+  workspaceRequest,
+  downloadWorkspace,
+  type Workspace,
+} from "./workspace-api";
+import { Button } from "@/components/ui/button";
 
 export interface Scope {
   periodId: string;
@@ -88,6 +94,7 @@ interface StoreValue {
   clearAll: () => void;
   importDataset: (incoming: DataSet) => { ok: boolean; error?: string };
   lastSaved: number | null;
+  saving: boolean;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -97,85 +104,132 @@ const uid = (prefix: string) =>
     .toString(36)
     .slice(2, 8)}`;
 
-function loadDataset(): DataSet {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return createSampleDataset();
-    const parsed = JSON.parse(raw) as DataSet;
-    if (!parsed || !Array.isArray(parsed.students)) {
-      return createSampleDataset();
-    }
-    const normalized: DataSet = {
-      ...emptyDataset(),
-      ...parsed,
-      assessments: (parsed.assessments ?? []).map((assessment) => ({
-        ...assessment,
-        rubric: Array.isArray(assessment.rubric)
-          ? assessment.rubric.map((item) => ({
-              id: item.id || `${assessment.id}-${Math.random().toString(36).slice(2, 8)}`,
-              label: item.label || "Criterion",
-              percentage: Math.max(0, Number(item.percentage) || 0),
-            }))
-          : [],
-      })),
-    };
-    return normalized;
-  } catch {
-    return createSampleDataset();
-  }
-}
-
-function loadScope(data: DataSet): Scope {
-  const fallback: Scope = {
-    periodId: data.periods[0]?.id ?? "",
-    sectionId: data.sections[0]?.id ?? "",
-    subjectId: data.subjects[0]?.id ?? "",
-  };
-  try {
-    const raw = localStorage.getItem(SCOPE_KEY);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw) as Scope;
-    return {
-      periodId: data.periods.some((period) => period.id === parsed.periodId)
-        ? parsed.periodId
-        : fallback.periodId,
-      sectionId: data.sections.some((section) => section.id === parsed.sectionId)
-        ? parsed.sectionId
-        : fallback.sectionId,
-      subjectId: data.subjects.some((subject) => subject.id === parsed.subjectId)
-        ? parsed.subjectId
-        : fallback.subjectId,
-    };
-  } catch {
-    return fallback;
-  }
-}
-
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState<DataSet>(() => loadDataset());
-  const [scope, setScopeState] = useState<Scope>(() => loadScope(loadDataset()));
+  const { signOut } = useAccount();
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let active = true;
+    workspaceRequest("GET")
+      .then((result) => {
+        if (active) {
+          setWorkspace(result);
+          setError("");
+        }
+      })
+      .catch((cause) => {
+        if (active)
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "Unable to load your workspace.",
+          );
+      });
+    return () => {
+      active = false;
+    };
+  }, [attempt]);
+  if (!workspace)
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6">
+        <h1 className="font-display text-2xl">Your private workspace</h1>
+        <p
+          role={error ? "alert" : "status"}
+          className="max-w-md text-center text-sm text-muted-foreground"
+        >
+          {error || "Loading your records…"}
+        </p>
+        {error && (
+          <>
+            <Button
+              onClick={() => {
+                setError("");
+                setAttempt((n) => n + 1);
+              }}
+            >
+              Try again
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                void signOut().catch(() =>
+                  setError("Could not sign out. Please try again."),
+                );
+              }}
+            >
+              Sign out
+            </Button>
+          </>
+        )}
+      </div>
+    );
+  return <WorkspaceProvider initial={workspace}>{children}</WorkspaceProvider>;
+}
+
+function WorkspaceProvider({
+  children,
+  initial,
+}: {
+  children: ReactNode;
+  initial: Workspace;
+}) {
+  const [data, setData] = useState<DataSet>(initial.data);
+  const [scope, setScopeState] = useState<Scope>({
+    periodId: initial.data.periods[0]?.id ?? "",
+    sectionId: initial.data.sections[0]?.id ?? "",
+    subjectId: initial.data.subjects[0]?.id ?? "",
+  });
   const [lastSaved, setLastSaved] = useState<number | null>(null);
-  const firstRun = useRef(true);
-
+  const [savedData, setSavedData] = useState(initial.data);
+  const [saveError, setSaveError] = useState("");
+  const [attempt, setAttempt] = useState(0);
+  const version = useRef(initial.version);
+  const saving = savedData !== data;
+  const inFlight = useRef(false);
+  const mounted = useRef(true);
   useEffect(() => {
-    if (firstRun.current) {
-      firstRun.current = false;
-    }
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      setLastSaved(Date.now());
-    } catch {
-      // Storage may be unavailable; the session keeps working in memory.
-    }
-  }, [data]);
-
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   useEffect(() => {
-    try {
-      localStorage.setItem(SCOPE_KEY, JSON.stringify(scope));
-    } catch {
-      // Ignore scope persistence failures.
-    }
-  }, [scope]);
+    if (!saving || inFlight.current || saveError) return;
+    const timer = setTimeout(() => {
+      inFlight.current = true;
+      workspaceRequest("PUT", { data, version: version.current })
+        .then((result) => {
+          version.current = result.version;
+          if (mounted.current) {
+            setSavedData(data);
+            setLastSaved(Date.now());
+          }
+        })
+        .catch((cause) => {
+          if (mounted.current)
+            setSaveError(
+              cause instanceof Error
+                ? cause.message
+                : "Your changes could not be saved.",
+            );
+        })
+        .finally(() => {
+          inFlight.current = false;
+          if (mounted.current) setAttempt((n) => n + 1);
+        });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [data, saving, saveError, attempt]);
+  useEffect(() => {
+    if (!saving) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [saving]);
 
   const setScope = useCallback((patch: Partial<Scope>) => {
     setScopeState((current) => ({ ...current, ...patch }));
@@ -185,7 +239,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     ({ name, studentNumber, sectionId }) => {
       const trimmedName = name.trim();
       const trimmedNumber = studentNumber.trim();
-      if (!trimmedName) return { ok: false, error: "Student name is required." };
+      if (!trimmedName)
+        return { ok: false, error: "Student name is required." };
       if (!trimmedNumber)
         return { ok: false, error: "Student number is required." };
       if (
@@ -194,7 +249,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
             student.studentNumber.toLowerCase() === trimmedNumber.toLowerCase(),
         )
       ) {
-        return { ok: false, error: "That student number is already registered." };
+        return {
+          ok: false,
+          error: "That student number is already registered.",
+        };
       }
       const student: Student = {
         id: uid("stu"),
@@ -261,14 +319,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [data.students],
   );
 
-  const updateStudent = useCallback<StoreValue["updateStudent"]>((id, patch) => {
-    setData((current) => ({
-      ...current,
-      students: current.students.map((student) =>
-        student.id === id ? { ...student, ...patch } : student,
-      ),
-    }));
-  }, []);
+  const updateStudent = useCallback<StoreValue["updateStudent"]>(
+    (id, patch) => {
+      setData((current) => ({
+        ...current,
+        students: current.students.map((student) =>
+          student.id === id ? { ...student, ...patch } : student,
+        ),
+      }));
+    },
+    [],
+  );
 
   const archiveStudent = useCallback<StoreValue["archiveStudent"]>((id) => {
     setData((current) => ({
@@ -333,14 +394,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const updateSection = useCallback<StoreValue["updateSection"]>((id, patch) => {
-    setData((current) => ({
-      ...current,
-      sections: current.sections.map((section) =>
-        section.id === id ? { ...section, ...patch } : section,
-      ),
-    }));
-  }, []);
+  const updateSection = useCallback<StoreValue["updateSection"]>(
+    (id, patch) => {
+      setData((current) => ({
+        ...current,
+        sections: current.sections.map((section) =>
+          section.id === id ? { ...section, ...patch } : section,
+        ),
+      }));
+    },
+    [],
+  );
 
   const addSubject = useCallback<StoreValue["addSubject"]>((name, code) => {
     setData((current) => {
@@ -361,14 +425,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const updateSubject = useCallback<StoreValue["updateSubject"]>((id, patch) => {
-    setData((current) => ({
-      ...current,
-      subjects: current.subjects.map((subject) =>
-        subject.id === id ? { ...subject, ...patch } : subject,
-      ),
-    }));
-  }, []);
+  const updateSubject = useCallback<StoreValue["updateSubject"]>(
+    (id, patch) => {
+      setData((current) => ({
+        ...current,
+        subjects: current.subjects.map((subject) =>
+          subject.id === id ? { ...subject, ...patch } : subject,
+        ),
+      }));
+    },
+    [],
+  );
 
   const addAssessment = useCallback<StoreValue["addAssessment"]>((input) => {
     setData((current) => {
@@ -439,7 +506,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const setScore = useCallback<StoreValue["setScore"]>(
     (assessmentId, studentId, rawScore, status) => {
-      const assessment = data.assessments.find((item) => item.id === assessmentId);
+      const assessment = data.assessments.find(
+        (item) => item.id === assessmentId,
+      );
       if (!assessment) return { ok: false, error: "Assessment not found." };
       if (
         status === "recorded" &&
@@ -462,7 +531,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setData((current) => {
         const existing = current.scores.find(
           (score) =>
-            score.assessmentId === assessmentId && score.studentId === studentId,
+            score.assessmentId === assessmentId &&
+            score.studentId === studentId,
         );
         if (status === "recorded" && rawScore === null) {
           return {
@@ -580,7 +650,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const importDataset = useCallback<StoreValue["importDataset"]>((incoming) => {
+    const validated = datasetSchema.safeParse(incoming);
     if (
+      !validated.success ||
       !incoming ||
       !Array.isArray(incoming.periods) ||
       !Array.isArray(incoming.subjects) ||
@@ -592,7 +664,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     ) {
       return { ok: false, error: "This file is not a valid backup." };
     }
-    const merged: DataSet = { ...emptyDataset(), ...incoming };
+    const merged: DataSet = {
+      ...emptyDataset(),
+      ...(validated.data as DataSet),
+    };
     setData(merged);
     setScopeState({
       periodId: merged.periods[0]?.id ?? "",
@@ -640,6 +715,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       clearAll,
       importDataset,
       lastSaved,
+      saving,
     }),
     [
       data,
@@ -668,15 +744,54 @@ export function DataProvider({ children }: { children: ReactNode }) {
       clearAll,
       importDataset,
       lastSaved,
+      saving,
     ],
   );
 
-  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
+  return (
+    <StoreContext.Provider value={value}>
+      {saveError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 p-6 backdrop-blur-sm">
+          <div className="surface-card max-w-lg space-y-4 p-6" role="alert">
+            <h2 className="font-display text-xl font-semibold">
+              Your changes have not been saved
+            </h2>
+            <p className="text-sm text-muted-foreground">{saveError}</p>
+            <p className="text-sm text-muted-foreground">
+              Keep this page open or download a backup to protect your unsaved
+              work.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={() => {
+                  setSaveError("");
+                  setAttempt((n) => n + 1);
+                }}
+              >
+                Retry saving
+              </Button>
+              <Button variant="outline" onClick={() => downloadWorkspace(data)}>
+                Download unsaved backup
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => window.location.reload()}
+              >
+                Reload latest records
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {children}
+    </StoreContext.Provider>
+  );
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function useDataStore(): StoreValue {
   const context = useContext(StoreContext);
-  if (!context) throw new Error("useDataStore must be used within DataProvider");
+  if (!context)
+    throw new Error("useDataStore must be used within DataProvider");
   return context;
 }
