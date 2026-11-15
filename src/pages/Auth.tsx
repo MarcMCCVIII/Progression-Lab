@@ -51,16 +51,11 @@ export function AuthPage({
         await onComplete();
       }
       if (mode === "signup") {
-        const user = await signup(email.trim(), password, {
+        await signup(email.trim(), password, {
           full_name: name.trim(),
         });
-        if (user.confirmedAt) await onComplete();
-        else {
-          switchMode("login");
-          setMessage(
-            "Check your email to confirm your account, then sign in. Check your spam folder if needed.",
-          );
-        }
+        await login(email.trim(), password);
+        await onComplete();
       }
       if (mode === "forgot") {
         await requestPasswordRecovery(email.trim());
@@ -76,7 +71,7 @@ export function AuthPage({
       setError(
         cause instanceof AuthError
           ? cause.status === 401
-            ? "Unable to sign in. Check your email, password, and email confirmation."
+            ? "Unable to sign in. Check your email and password."
             : cause.message
           : "Unable to reach the account service. Please try again.",
       );
