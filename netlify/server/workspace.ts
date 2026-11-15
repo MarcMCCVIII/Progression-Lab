@@ -68,7 +68,8 @@ export function createWorkspaceHandler(services: Services) {
           409,
         );
       return json(saved);
-    } catch {
+    } catch (error) {
+      console.error("Workspace request failed", error);
       return json(
         { error: "Your workspace could not be reached. Please try again." },
         503,
