@@ -374,7 +374,7 @@ export default function Reports() {
   return (
     <AppShell
       title="Reports & data"
-      description="Generate printable reports, export Excel and CSV files, and manage the local dataset, academic setup and analysis thresholds."
+      description="Generate printable reports, export Excel and CSV files, and manage your private dataset, academic setup and analysis thresholds."
       actions={<ScopeBar compact />}
     >
       <Tabs defaultValue="reports" className="space-y-4">
@@ -1168,7 +1168,7 @@ export default function Reports() {
             <section className="surface-card p-4 sm:p-5">
               <SectionHeading
                 title="Backup & restore"
-                description="Records live in this browser on this device. Export a backup before clearing the browser or moving computers."
+                description="Records are saved to your private account and are available when you sign in on another device. Export backups for an extra copy."
               />
               <div className="grid gap-2 sm:grid-cols-2">
                 <Button variant="outline" className="gap-1.5" onClick={exportBackup}>
@@ -1271,7 +1271,7 @@ export default function Reports() {
                       <AlertDialogTitle>Replace current records?</AlertDialogTitle>
                       <AlertDialogDescription>
                         The sample dataset will overwrite students, assessments and
-                        scores currently stored on this device. Export a backup
+                        scores currently stored in your account. Export a backup
                         first if you need to keep them.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
@@ -1304,7 +1304,7 @@ export default function Reports() {
                       <AlertDialogTitle>Clear the whole dataset?</AlertDialogTitle>
                       <AlertDialogDescription>
                         Every student, enrollment, assessment and score will be
-                        deleted from this device. This cannot be undone without a
+                        deleted from your account. This cannot be undone without a
                         backup.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
@@ -1326,10 +1326,9 @@ export default function Reports() {
                 <div className="rounded-lg border border-border/70 bg-secondary/40 p-3 text-[11px] leading-relaxed text-muted-foreground">
                   <p className="font-medium text-foreground">Privacy note</p>
                   <p className="mt-1">
-                    Data never leaves this browser. A local backup file is not
-                    encrypted; protect exported files as carefully as a grade book.
-                    Clearing browser storage deletes the records unless a backup
-                    exists.
+                    Your records are stored securely and are private to your account.
+                    Downloaded backups are not encrypted; protect exported files
+                    as carefully as a grade book. Sign out when using a shared device.
                   </p>
                 </div>
               </div>
@@ -1339,7 +1338,7 @@ export default function Reports() {
           <section className="surface-card p-4 sm:p-5">
             <SectionHeading
               title="Data model"
-              description="Keys and relationships maintained by the local database."
+              description="Keys and relationships maintained in your private workspace."
             />
             <div className="grid gap-3 text-[11px] leading-relaxed text-muted-foreground sm:grid-cols-3">
               <div className="rounded-lg border border-border/70 p-3">

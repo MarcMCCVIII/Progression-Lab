@@ -6,6 +6,7 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { RouteErrorBoundary } from "./components/error-boundary/route-error-boundary";
 import { routers } from "./router";
 import { DataProvider } from "./lib/data-store";
+import { AccountGate } from "./lib/auth";
 
 const queryClient = new QueryClient();
 
@@ -21,11 +22,13 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <DataProvider>
-          <Toaster />
-          <Sonner />
-          <RouterProvider router={router} />
-        </DataProvider>
+        <AccountGate>
+          <DataProvider>
+            <Toaster />
+            <Sonner />
+            <RouterProvider router={router} />
+          </DataProvider>
+        </AccountGate>
       </TooltipProvider>
     </QueryClientProvider>
   );
