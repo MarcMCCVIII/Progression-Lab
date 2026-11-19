@@ -1,0 +1,176 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 30% 97%;
+    --foreground: 224 28% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 224 28% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 28% 14%;
+
+    --primary: 244 42% 30%;
+    --primary-foreground: 40 40% 98%;
+
+    --secondary: 240 20% 94%;
+    --secondary-foreground: 244 38% 26%;
+
+    --muted: 240 18% 95%;
+    --muted-foreground: 235 10% 44%;
+
+    --accent: 173 45% 30%;
+    --accent-foreground: 40 40% 98%;
+
+    --destructive: 0 66% 47%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 158 48% 32%;
+    --success-foreground: 0 0% 100%;
+    --warning: 32 82% 40%;
+    --warning-foreground: 40 40% 98%;
+    --info: 214 62% 44%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 235 16% 88%;
+    --input: 235 16% 85%;
+    --ring: 244 42% 40%;
+
+    --chart-1: 244 46% 46%;
+    --chart-2: 173 46% 34%;
+    --chart-3: 32 82% 47%;
+    --chart-4: 342 58% 50%;
+    --chart-5: 265 42% 56%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 224 32% 12%;
+    --sidebar-foreground: 40 22% 90%;
+    --sidebar-primary: 40 40% 97%;
+    --sidebar-primary-foreground: 224 32% 12%;
+    --sidebar-accent: 244 32% 22%;
+    --sidebar-accent-foreground: 40 40% 98%;
+    --sidebar-border: 230 24% 22%;
+    --sidebar-ring: 173 45% 45%;
+
+    --gradient-canvas: radial-gradient(
+      1200px 520px at 8% -10%,
+      hsl(244 42% 30% / 0.1),
+      transparent 62%
+    );
+    --shadow-card: 0 1px 2px hsl(224 28% 14% / 0.05), 0 12px 28px -22px hsl(224 28% 14% / 0.45);
+    --shadow-raised: 0 2px 4px hsl(224 28% 14% / 0.06), 0 18px 40px -24px hsl(224 28% 14% / 0.5);
+  }
+
+  .dark {
+    --background: 224 30% 8%;
+    --foreground: 40 25% 94%;
+
+    --card: 224 28% 12%;
+    --card-foreground: 40 25% 94%;
+
+    --popover: 224 28% 12%;
+    --popover-foreground: 40 25% 94%;
+
+    --primary: 244 62% 68%;
+    --primary-foreground: 224 30% 10%;
+
+    --secondary: 226 22% 18%;
+    --secondary-foreground: 40 25% 94%;
+
+    --muted: 226 22% 17%;
+    --muted-foreground: 235 12% 68%;
+
+    --accent: 173 45% 45%;
+    --accent-foreground: 224 30% 8%;
+
+    --destructive: 0 62% 52%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 158 45% 45%;
+    --success-foreground: 224 30% 8%;
+    --warning: 32 80% 55%;
+    --warning-foreground: 224 30% 8%;
+    --info: 214 70% 60%;
+    --info-foreground: 224 30% 8%;
+
+    --border: 226 20% 22%;
+    --input: 226 20% 24%;
+    --ring: 244 62% 68%;
+
+    --chart-1: 244 68% 72%;
+    --chart-2: 173 50% 52%;
+    --chart-3: 32 84% 60%;
+    --chart-4: 342 62% 64%;
+    --chart-5: 265 55% 70%;
+
+    --sidebar-background: 224 32% 10%;
+    --sidebar-foreground: 40 22% 90%;
+    --sidebar-accent: 244 30% 20%;
+
+    --shadow-card: 0 1px 2px hsl(0 0% 0% / 0.3), 0 12px 28px -22px hsl(0 0% 0% / 0.8);
+    --shadow-raised: 0 2px 4px hsl(0 0% 0% / 0.35), 0 18px 40px -24px hsl(0 0% 0% / 0.9);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    background-image: var(--gradient-canvas);
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display tracking-tight;
+  }
+
+  ::selection {
+    background-color: hsl(var(--primary) / 0.16);
+  }
+}
+
+@layer utilities {
+  .surface-card {
+    @apply rounded-xl border border-border/80 bg-card;
+    box-shadow: var(--shadow-card);
+  }
+
+  .surface-raised {
+    box-shadow: var(--shadow-raised);
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .scroll-shadow {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: hsl(var(--card));
+    background-image: none;
+  }
+}
